@@ -1,8 +1,7 @@
 name: ci
 on:
   push:
-    # TEMPORARY: second branch is dev-only, removed before merge to main
-    branches: [main, claude/chatmail-relays-mirror-nhgavn]
+    branches: [main]
   pull_request:
   workflow_dispatch:
 permissions:

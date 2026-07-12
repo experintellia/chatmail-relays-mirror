@@ -15,9 +15,6 @@ on:
   schedule:
     - cron: "37 3 * * *" # daily; non-:00 minute to avoid the top-of-hour stampede
   workflow_dispatch:
-  # TEMPORARY dev-only trigger, removed before merge to main:
-  push:
-    branches: [claude/chatmail-relays-mirror-nhgavn]
 permissions:
   contents: write
 concurrency:
