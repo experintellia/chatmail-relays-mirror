@@ -1,9 +1,16 @@
 """Fixture-based tests for scripts/parse_relays.py.
 
-The fixture is a verbatim copy of https://chatmail.at/relays as fetched
-on 2026-07-12. If the page layout drifts and the parser needs updating,
-refresh the fixture from the data branch (relays.html) and adjust the
-expectations below.
+The fixture reproduces the exact HTML structure of https://chatmail.at/relays
+(as of 2026-07-12), but every relay hostname is replaced with a fake one
+under the RFC 2606-reserved .example TLD, so this repo's machinery carries
+no copy of the real relay list — the data branch is the only place real
+data lives. The fakes preserve the structural variety of the real page:
+two relays sharing one <li>, single-character labels, hyphenated labels,
+and deep subdomains.
+
+If the page layout drifts and the parser needs updating, refresh the
+structure from the data branch (relays.html), re-fake the hostnames, and
+adjust the expectations below.
 """
 
 import os
@@ -17,36 +24,36 @@ sys.path.insert(
 import parse_relays
 
 FIXTURE = os.path.join(
-    os.path.dirname(__file__), "fixtures", "relays-2026-07-12.html"
+    os.path.dirname(__file__), "fixtures", "relays-sample.html"
 )
 
 EXPECTED_HOSTS = [
-    "nine.testrun.org",
-    "mehl.cloud",
-    "mailchat.pl",
-    "chatmail.woodpeckersnest.space",
-    "chatmail.culturanerd.it",
-    "chat.adminforge.de",
-    "chika.aangat.lahat.computer",
-    "tarpit.fun",
-    "d.gaufr.es",
-    "chtml.ca",
-    "chatmail.au",
-    "e2ee.wang",
-    "chat.privittytech.com",
-    "e2ee.im",
-    "chatmail.email",
-    "danneskjold.de",
-    "chat.in-the.eu",
-    "chat.nuvon.app",
-    "nibblehole.com",
-    "chat.zashm.org",
-    "chat.sus.fr",
-    "delta.thelab.uno",
-    "chat.vim.wtf",
-    "uninterest.ing",
-    "sweetfern.net",
-    "delta.disobey.net",
+    "nine.relay-a.example",
+    "relay-b.example",
+    "relay-c.example",
+    "chatmail.relay-d.example",
+    "chatmail.relay-e.example",
+    "chat.relay-f.example",
+    "chika.deeply.nested.example",
+    "relay-g.example",
+    "d.relay-h.example",
+    "relay-i.example",
+    "relay-j.example",
+    "e2ee-k.example",
+    "chat.relay-l.example",
+    "e2ee-m.example",
+    "relay-n.example",
+    "relay-o.example",
+    "chat.in-the-p.example",
+    "chat.relay-q.example",
+    "relay-r.example",
+    "chat.relay-s.example",
+    "chat.relay-t.example",
+    "delta.relay-u.example",
+    "chat.relay-v.example",
+    "relay-w.example",
+    "relay-x.example",
+    "delta.relay-y.example",
 ]
 
 
@@ -73,7 +80,7 @@ class TestExtractHosts(unittest.TestCase):
         self.assertEqual(parse_relays.extract_hosts(html), EXPECTED_HOSTS)
 
     def test_link_text_must_match_href_host(self):
-        html = '<a href="https://evil.example">nine.testrun.org</a>'
+        html = '<a href="https://evil.example">honest.relay.example</a>'
         self.assertEqual(parse_relays.extract_hosts(html), [])
 
     def test_non_hostname_text_ignored(self):
@@ -91,7 +98,6 @@ class TestSnapshot(unittest.TestCase):
         self.assertEqual(snap["source"], "https://chatmail.at/relays")
         self.assertEqual(snap["fetchedAt"], "2026-07-12T00:00:00Z")
         self.assertEqual(snap["relays"], [{"host": h} for h in EXPECTED_HOSTS])
-        self.assertIn({"host": "nine.testrun.org"}, snap["relays"])
 
     def test_empty_page_fails_loudly(self):
         with self.assertRaises(ValueError):

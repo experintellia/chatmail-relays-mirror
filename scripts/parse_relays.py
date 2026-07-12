@@ -4,7 +4,7 @@ https://chatmail.at/relays and emit the mirror's JSON snapshot.
 
 This is a mechanical transformation, not curation: a relay entry is any
 link (or heading) whose visible text is itself a bare DNS hostname. That
-rule matches the relay list entries ("nine.testrun.org", ...) and never
+rule matches the relay list entries and never
 matches decorative links (nav, docs, privacy, mailto, GitHub), whose text
 is prose or a full URL. For links we additionally require the href's host
 to equal the link text, so a stray hostname-looking label can't invent an
@@ -17,7 +17,7 @@ restructure existing fields; new OPTIONAL per-relay fields may be added):
     {
       "source": "https://chatmail.at/relays",
       "fetchedAt": "<ISO-8601 UTC>",
-      "relays": [ { "host": "nine.testrun.org" }, ... ]
+      "relays": [ { "host": "some.relay.example" }, ... ]
     }
 
 Order follows the page; duplicates are removed (first occurrence wins).

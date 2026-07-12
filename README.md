@@ -24,7 +24,7 @@ snapshot. It contains:
   "source": "https://chatmail.at/relays",
   "fetchedAt": "2026-07-12T03:37:00Z",
   "relays": [
-    { "host": "nine.testrun.org" }
+    { "host": "some.relay.example" }
   ]
 }
 ```
