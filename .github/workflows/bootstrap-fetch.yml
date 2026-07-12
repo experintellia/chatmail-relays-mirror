@@ -4,6 +4,9 @@
 name: bootstrap-fetch
 on:
   workflow_dispatch:
+  push:
+    branches: [claude/chatmail-relays-mirror-nhgavn]
+    paths: [.github/workflows/bootstrap-fetch.yml]
 permissions:
   contents: read
 jobs:
