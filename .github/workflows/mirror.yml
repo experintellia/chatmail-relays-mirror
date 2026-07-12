@@ -1,0 +1,61 @@
+# Automated, unattended mirror of https://chatmail.at/relays.
+#
+# Every run publishes the snapshot as a SINGLE orphan commit force-pushed to
+# the `data` branch — the branch has no history on purpose; it IS the current
+# snapshot. Integrity tripwire: if the fetch fails, or parsing/validation
+# yields zero relays, this job fails loudly and pushes NOTHING, so the last
+# good snapshot stays published.
+#
+# NOTE: the unconditional daily force-push (even when nothing changed) is
+# deliberate — it doubles as the keepalive that stops GitHub from disabling
+# scheduled workflows after ~60 days without repo activity. Do NOT "optimize"
+# this into commit-only-on-change.
+name: mirror
+on:
+  schedule:
+    - cron: "37 3 * * *" # daily; non-:00 minute to avoid the top-of-hour stampede
+  workflow_dispatch:
+  # TEMPORARY dev-only trigger, removed before merge to main:
+  push:
+    branches: [claude/chatmail-relays-mirror-nhgavn]
+permissions:
+  contents: write
+concurrency:
+  group: mirror
+  cancel-in-progress: false
+jobs:
+  mirror:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Fetch relay list page
+        run: |
+          set -euo pipefail
+          echo "FETCHED_AT=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_ENV"
+          # -f: fail on non-2xx; -L: follow redirects; honest User-Agent.
+          curl -fsSL --max-time 60 --retry 2 \
+            -A "chatmail-relays-mirror (github.com/${{ github.repository }})" \
+            -o relays.html \
+            https://chatmail.at/relays
+
+      - name: Parse and validate
+        run: |
+          set -euo pipefail
+          python3 scripts/parse_relays.py relays.html \
+            --fetched-at "$FETCHED_AT" > relays.json
+          python3 -m json.tool relays.json > /dev/null
+
+      - name: Publish snapshot as single orphan commit on data
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          html_blob=$(git hash-object -w relays.html)
+          json_blob=$(git hash-object -w relays.json)
+          tree=$(printf '100644 blob %s\trelays.html\n100644 blob %s\trelays.json\n' \
+            "$html_blob" "$json_blob" | git mktree)
+          # No parent given to commit-tree -> orphan commit; force-push
+          # replaces the branch wholesale, keeping it at exactly one commit.
+          commit=$(git commit-tree "$tree" -m "chatmail relays snapshot $FETCHED_AT")
+          git push --force origin "$commit:refs/heads/data"

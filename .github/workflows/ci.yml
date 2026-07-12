@@ -1,0 +1,16 @@
+name: ci
+on:
+  push:
+    # TEMPORARY: second branch is dev-only, removed before merge to main
+    branches: [main, claude/chatmail-relays-mirror-nhgavn]
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Parser fixture tests
+        run: python3 -m unittest discover -s tests -v
