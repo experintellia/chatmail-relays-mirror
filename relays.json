@@ -1,0 +1,81 @@
+{
+  "source": "https://chatmail.at/relays",
+  "fetchedAt": "2026-10-10T10:05:37Z",
+  "relays": [
+    {
+      "host": "nine.testrun.org"
+    },
+    {
+      "host": "mehl.cloud"
+    },
+    {
+      "host": "mailchat.pl"
+    },
+    {
+      "host": "chatmail.woodpeckersnest.space"
+    },
+    {
+      "host": "chatmail.culturanerd.it"
+    },
+    {
+      "host": "chat.adminforge.de"
+    },
+    {
+      "host": "chika.aangat.lahat.computer"
+    },
+    {
+      "host": "tarpit.fun"
+    },
+    {
+      "host": "d.gaufr.es"
+    },
+    {
+      "host": "chtml.ca"
+    },
+    {
+      "host": "chatmail.au"
+    },
+    {
+      "host": "e2ee.wang"
+    },
+    {
+      "host": "chat.privittytech.com"
+    },
+    {
+      "host": "e2ee.im"
+    },
+    {
+      "host": "chatmail.email"
+    },
+    {
+      "host": "chat.in-the.eu"
+    },
+    {
+      "host": "chat.nuvon.app"
+    },
+    {
+      "host": "nibblehole.com"
+    },
+    {
+      "host": "chat.sus.fr"
+    },
+    {
+      "host": "delta.thelab.uno"
+    },
+    {
+      "host": "chat.vim.wtf"
+    },
+    {
+      "host": "uninterest.ing"
+    },
+    {
+      "host": "sweetfern.net"
+    },
+    {
+      "host": "delta.disobey.net"
+    },
+    {
+      "host": "toque.im"
+    }
+  ]
+}
