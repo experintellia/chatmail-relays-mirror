@@ -17,7 +17,7 @@ jobs:
   # Manual dispatch only: run the mirror's fetch + reachability filter
   # WITHOUT publishing, and print per-port status for every relay.
   dry-run:
-    if: github.event_name == 'workflow_dispatch' || github.event_name == 'pull_request' # TEMP: revert before merge
+    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
