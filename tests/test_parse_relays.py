@@ -104,5 +104,25 @@ class TestSnapshot(unittest.TestCase):
             parse_relays.build_snapshot("<html><body>nothing</body></html>", "x")
 
 
+class TestReachability(unittest.TestCase):
+    def test_retries_then_gives_up(self):
+        calls = {}
+
+        def flaky(host):
+            calls[host] = calls.get(host, 0) + 1
+            # up.example succeeds on its 3rd try; down.example never does
+            return host == "up.example" and calls[host] == 3
+
+        kept = parse_relays.filter_reachable(
+            ["down.example", "up.example"], probe=flaky, delay=0
+        )
+        self.assertEqual(kept, ["up.example"])
+        self.assertEqual(calls, {"down.example": 3, "up.example": 3})
+
+    def test_all_unreachable_fails_loudly(self):
+        with self.assertRaises(ValueError):
+            parse_relays.build_snapshot(fixture_html(), "x", lambda hosts: [])
+
+
 if __name__ == "__main__":
     unittest.main()
