@@ -121,11 +121,11 @@ def extract_hosts(html):
 PROBE_PORTS = (993, 465)
 
 
-def probe(host, timeout=10):
-    """True if every PROBE_PORTS port completes a verified TLS handshake."""
+def probe(host, ports=PROBE_PORTS, timeout=10):
+    """True if every port completes a verified TLS handshake."""
     ctx = ssl.create_default_context()
     try:
-        for port in PROBE_PORTS:
+        for port in ports:
             with socket.create_connection((host, port), timeout=timeout) as s:
                 with ctx.wrap_socket(s, server_hostname=host):
                     pass
