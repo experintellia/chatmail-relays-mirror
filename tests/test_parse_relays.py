@@ -119,6 +119,29 @@ class TestReachability(unittest.TestCase):
         self.assertEqual(kept, ["up.example"])
         self.assertEqual(calls, {"down.example": 3, "up.example": 3})
 
+    def test_unreachable_replaced_by_dcaccount_links(self):
+        up = {"ok.example", "a.multi.example", "b.example"}
+        links = {"multi.example": ["a.multi.example", "dead.example", "b.example"]}
+        kept = parse_relays.filter_reachable(
+            ["multi.example", "ok.example", "gone.example", "b.example"],
+            probe=lambda h: h in up,
+            links=lambda h: links.get(h, []),
+            delay=0,
+        )
+        self.assertEqual(kept, ["a.multi.example", "b.example", "ok.example"])
+
+    def test_extract_dcaccount_hosts(self):
+        html = (
+            '<a href="dcaccount:a.relay.example">a</a>'
+            '<a href="DCACCOUNT:https://b.relay.example/new">b</a>'
+            '<a href="dcaccount:a.relay.example">dup</a>'
+            '<a href="dcaccount:not a host">x</a>'
+        )
+        self.assertEqual(
+            parse_relays.extract_dcaccount_hosts(html),
+            ["a.relay.example", "b.relay.example"],
+        )
+
     def test_all_unreachable_fails_loudly(self):
         with self.assertRaises(ValueError):
             parse_relays.build_snapshot(fixture_html(), "x", lambda hosts: [])

@@ -22,7 +22,9 @@ restructure existing fields; new OPTIONAL per-relay fields may be added):
 
 Order follows the page; duplicates are removed (first occurrence wins).
 With --reachable-only, relays failing a live probe (TLS handshake on
-IMAPS 993 and SMTPS 465, up to 3 attempts) are dropped.
+IMAPS 993 and SMTPS 465, up to 3 attempts) are replaced by the reachable
+hosts named in dcaccount: links on their own website (some sites front
+several providers), or dropped if there are none.
 Exits non-zero if no relays can be extracted, so the mirror workflow
 fails loudly instead of publishing an empty list.
 
@@ -37,6 +39,7 @@ import socket
 import ssl
 import sys
 import time
+import urllib.request
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 from html import unescape
@@ -144,11 +147,39 @@ def is_reachable(host, probe=probe, attempts=3, delay=5):
     return False
 
 
+# dcaccount:host or dcaccount:https://host/new (Delta Chat signup links)
+DCACCOUNT_RE = re.compile(r"dcaccount:(?:https?://)?([^/:?#&\"'<>\s]+)", re.I)
+
+
+def extract_dcaccount_hosts(html):
+    hosts = (normalize(h) for h in DCACCOUNT_RE.findall(html))
+    return list(dict.fromkeys(h for h in hosts if is_hostname(h)))
+
+
+def dcaccount_hosts(host):
+    """Hosts from dcaccount: links on https://host/, [] if unreachable."""
+    try:
+        with urllib.request.urlopen(f"https://{host}/", timeout=10) as r:
+            html = r.read().decode("utf-8", "replace")
+    except (OSError, ValueError):
+        return []
+    return [h for h in extract_dcaccount_hosts(html) if h != host]
+
+
+def resolve(host, links=dcaccount_hosts, **kw):
+    """[host] if reachable, else the reachable hosts its website links."""
+    if is_reachable(host, **kw):
+        return [host]
+    alts = [h for h in links(host) if is_reachable(h, **kw)]
+    print(f"{host}: replaced by {alts} from its dcaccount links", file=sys.stderr)
+    return alts
+
+
 def filter_reachable(hosts, **kw):
-    """Keep hosts that pass is_reachable, preserving order."""
+    """Resolve every host, preserving order, deduplicated."""
     with ThreadPoolExecutor(max_workers=16) as pool:
-        ok = list(pool.map(lambda h: is_reachable(h, **kw), hosts))
-    return [h for h, keep in zip(hosts, ok) if keep]
+        resolved = list(pool.map(lambda h: resolve(h, **kw), hosts))
+    return list(dict.fromkeys(h for hs in resolved for h in hs))
 
 
 def build_snapshot(html, fetched_at, host_filter=None):

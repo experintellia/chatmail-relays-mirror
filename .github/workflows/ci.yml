@@ -17,7 +17,7 @@ jobs:
   # Manual dispatch only: run the mirror's fetch + reachability filter
   # WITHOUT publishing, and print per-port status for every relay.
   dry-run:
-    if: github.event_name == 'workflow_dispatch'
+    if: github.event_name == 'workflow_dispatch' || github.event_name == 'pull_request' # TEMP: revert before merge
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -35,7 +35,7 @@ jobs:
           import sys, urllib.request
           from concurrent.futures import ThreadPoolExecutor
           sys.path.insert(0, "scripts")
-          from parse_relays import extract_hosts, is_reachable, probe
+          from parse_relays import dcaccount_hosts, extract_hosts, is_reachable, probe
 
           def web(h):
               try:
@@ -50,7 +50,7 @@ jobs:
                      for p in (443, 993, 465)}
               ok = lambda b: "ok" if b else "FAIL"
               return (f"{h:40} 443:{ok(tls[443]):4} 993:{ok(tls[993]):4} "
-                      f"465:{ok(tls[465]):4} web:{web(h)}")
+                      f"465:{ok(tls[465]):4} web:{web(h)} dcaccount:{dcaccount_hosts(h)}")
 
           hosts = extract_hosts(open("relays.html", encoding="utf-8").read())
           with ThreadPoolExecutor(16) as pool:
