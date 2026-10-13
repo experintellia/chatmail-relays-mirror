@@ -21,17 +21,26 @@ restructure existing fields; new OPTIONAL per-relay fields may be added):
     }
 
 Order follows the page; duplicates are removed (first occurrence wins).
+With --reachable-only, relays failing a live probe (TLS handshake on
+IMAPS 993 and SMTPS 465, up to 3 attempts) are replaced by the reachable
+hosts named in dcaccount: links on their own website (some sites front
+several providers), or dropped if there are none.
 Exits non-zero if no relays can be extracted, so the mirror workflow
 fails loudly instead of publishing an empty list.
 
 Stdlib only. Usage:
-    parse_relays.py page.html [--fetched-at ISO8601] > relays.json
+    parse_relays.py page.html [--fetched-at ISO8601] [--reachable-only] > relays.json
 """
 
 import argparse
 import json
 import re
+import socket
+import ssl
 import sys
+import time
+import urllib.request
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 from html import unescape
 from html.parser import HTMLParser
@@ -111,12 +120,76 @@ def extract_hosts(html):
     return hosts
 
 
-def build_snapshot(html, fetched_at):
+# Ports a chat client needs: IMAPS to receive, SMTPS to send.
+PROBE_PORTS = (993, 465)
+
+
+def probe(host, ports=PROBE_PORTS, timeout=10):
+    """True if every port completes a verified TLS handshake."""
+    ctx = ssl.create_default_context()
+    try:
+        for port in ports:
+            with socket.create_connection((host, port), timeout=timeout) as s:
+                with ctx.wrap_socket(s, server_hostname=host):
+                    pass
+    except (OSError, ssl.SSLError):
+        return False
+    return True
+
+
+def is_reachable(host, probe=probe, attempts=3, delay=5):
+    for i in range(attempts):
+        if probe(host):
+            return True
+        if i < attempts - 1:
+            time.sleep(delay)
+    print(f"unreachable after {attempts} attempts: {host}", file=sys.stderr)
+    return False
+
+
+# dcaccount:host or dcaccount:https://host/new (Delta Chat signup links)
+DCACCOUNT_RE = re.compile(r"dcaccount:(?:https?://)?([^/:?#&\"'<>\s]+)", re.I)
+
+
+def extract_dcaccount_hosts(html):
+    hosts = (normalize(h) for h in DCACCOUNT_RE.findall(html))
+    return list(dict.fromkeys(h for h in hosts if is_hostname(h)))
+
+
+def dcaccount_hosts(host):
+    """Hosts from dcaccount: links on https://host/, [] if unreachable."""
+    try:
+        with urllib.request.urlopen(f"https://{host}/", timeout=10) as r:
+            html = r.read().decode("utf-8", "replace")
+    except (OSError, ValueError):
+        return []
+    return [h for h in extract_dcaccount_hosts(html) if h != host]
+
+
+def resolve(host, links=dcaccount_hosts, **kw):
+    """[host] if reachable, else the reachable hosts its website links."""
+    if is_reachable(host, **kw):
+        return [host]
+    alts = [h for h in links(host) if is_reachable(h, **kw)]
+    print(f"{host}: replaced by {alts} from its dcaccount links", file=sys.stderr)
+    return alts
+
+
+def filter_reachable(hosts, **kw):
+    """Resolve every host, preserving order, deduplicated."""
+    with ThreadPoolExecutor(max_workers=16) as pool:
+        resolved = list(pool.map(lambda h: resolve(h, **kw), hosts))
+    return list(dict.fromkeys(h for hs in resolved for h in hs))
+
+
+def build_snapshot(html, fetched_at, host_filter=None):
     hosts = extract_hosts(html)
+    if hosts and host_filter:
+        hosts = host_filter(hosts)
     if not hosts:
         raise ValueError(
-            "no relay hostnames extracted — refusing to produce an empty "
-            "list (page layout may have changed)"
+            "no (reachable) relay hostnames extracted — refusing to produce "
+            "an empty list (page layout changed, or runner network down?)"
         )
     return {
         "source": SOURCE_URL,
@@ -133,6 +206,11 @@ def main(argv=None):
         default=None,
         help="ISO-8601 UTC fetch timestamp (default: now)",
     )
+    ap.add_argument(
+        "--reachable-only",
+        action="store_true",
+        help="drop relays failing a live TLS probe (3 attempts each)",
+    )
     args = ap.parse_args(argv)
 
     fetched_at = args.fetched_at or datetime.now(timezone.utc).strftime(
@@ -142,7 +220,9 @@ def main(argv=None):
         html = f.read()
 
     try:
-        snapshot = build_snapshot(html, fetched_at)
+        snapshot = build_snapshot(
+            html, fetched_at, filter_reachable if args.reachable_only else None
+        )
     except ValueError as e:
         print(f"error: {e}", file=sys.stderr)
         return 1

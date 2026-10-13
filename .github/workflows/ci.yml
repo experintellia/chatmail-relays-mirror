@@ -13,3 +13,46 @@ jobs:
       - uses: actions/checkout@v4
       - name: Parser fixture tests
         run: python3 -m unittest discover -s tests -v
+
+  # Manual dispatch only: run the mirror's fetch + reachability filter
+  # WITHOUT publishing, and print per-port status for every relay.
+  dry-run:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fetch, parse, filter (no publish)
+        run: |
+          set -euo pipefail
+          curl -fsSL --max-time 60 --retry 2 \
+            -A "chatmail-relays-mirror (github.com/${{ github.repository }})" \
+            -o relays.html https://chatmail.at/relays
+          python3 scripts/parse_relays.py relays.html --reachable-only
+      - name: Per-port diagnostics
+        if: always()
+        run: |
+          python3 - <<'PY'
+          import sys, urllib.request
+          from concurrent.futures import ThreadPoolExecutor
+          sys.path.insert(0, "scripts")
+          from parse_relays import dcaccount_hosts, extract_hosts, is_reachable, probe
+
+          def web(h):
+              try:
+                  return urllib.request.urlopen(f"https://{h}/", timeout=10).status
+              except urllib.error.HTTPError as e:
+                  return e.code
+              except Exception as e:
+                  return type(e).__name__
+
+          def row(h):
+              tls = {p: is_reachable(h, probe=lambda h: probe(h, ports=(p,)))
+                     for p in (443, 993, 465)}
+              ok = lambda b: "ok" if b else "FAIL"
+              return (f"{h:40} 443:{ok(tls[443]):4} 993:{ok(tls[993]):4} "
+                      f"465:{ok(tls[465]):4} web:{web(h)} dcaccount:{dcaccount_hosts(h)}")
+
+          hosts = extract_hosts(open("relays.html", encoding="utf-8").read())
+          with ThreadPoolExecutor(16) as pool:
+              print("\n".join(pool.map(row, hosts)))
+          PY

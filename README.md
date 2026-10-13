@@ -29,7 +29,13 @@ snapshot. It contains:
 }
 ```
 
-`host` is a validated bare DNS hostname, in page order, deduplicated. The
+`host` is a validated bare DNS hostname, in page order, deduplicated.
+Only relays that were **reachable at fetch time** are listed: each must
+complete a verified TLS handshake on IMAPS (993) and SMTPS (465) from the
+GitHub runner, with up to 3 attempts. A relay that fails is replaced by
+the reachable hosts named in `dcaccount:` links on its own website (some
+sites front several providers), or dropped if there are none.
+`relays.html` still has the full, unfiltered page. The
 `source`, `fetchedAt`, and `relays[].host` fields are stable; optional
 per-relay fields may appear later — ignore unknown fields.
 
@@ -42,7 +48,8 @@ https://raw.githubusercontent.com/experintellia/chatmail-relays-mirror/refs/head
 `raw.githubusercontent.com` serves with CORS `Access-Control-Allow-Origin: *`,
 so this works directly from browser apps.
 
-If a run fails (page unreachable, layout drift, empty parse result) nothing
+If a run fails (page unreachable, layout drift, empty parse result, no
+relay reachable) nothing
 is pushed and the last good snapshot stays published.
 
 ## License

@@ -104,5 +104,48 @@ class TestSnapshot(unittest.TestCase):
             parse_relays.build_snapshot("<html><body>nothing</body></html>", "x")
 
 
+class TestReachability(unittest.TestCase):
+    def test_retries_then_gives_up(self):
+        calls = {}
+
+        def flaky(host):
+            calls[host] = calls.get(host, 0) + 1
+            # up.example succeeds on its 3rd try; down.example never does
+            return host == "up.example" and calls[host] == 3
+
+        kept = parse_relays.filter_reachable(
+            ["down.example", "up.example"], probe=flaky, delay=0
+        )
+        self.assertEqual(kept, ["up.example"])
+        self.assertEqual(calls, {"down.example": 3, "up.example": 3})
+
+    def test_unreachable_replaced_by_dcaccount_links(self):
+        up = {"ok.example", "a.multi.example", "b.example"}
+        links = {"multi.example": ["a.multi.example", "dead.example", "b.example"]}
+        kept = parse_relays.filter_reachable(
+            ["multi.example", "ok.example", "gone.example", "b.example"],
+            probe=lambda h: h in up,
+            links=lambda h: links.get(h, []),
+            delay=0,
+        )
+        self.assertEqual(kept, ["a.multi.example", "b.example", "ok.example"])
+
+    def test_extract_dcaccount_hosts(self):
+        html = (
+            '<a href="dcaccount:a.relay.example">a</a>'
+            '<a href="DCACCOUNT:https://b.relay.example/new">b</a>'
+            '<a href="dcaccount:a.relay.example">dup</a>'
+            '<a href="dcaccount:not a host">x</a>'
+        )
+        self.assertEqual(
+            parse_relays.extract_dcaccount_hosts(html),
+            ["a.relay.example", "b.relay.example"],
+        )
+
+    def test_all_unreachable_fails_loudly(self):
+        with self.assertRaises(ValueError):
+            parse_relays.build_snapshot(fixture_html(), "x", lambda hosts: [])
+
+
 if __name__ == "__main__":
     unittest.main()

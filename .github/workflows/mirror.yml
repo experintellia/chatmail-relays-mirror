@@ -40,7 +40,7 @@ jobs:
         run: |
           set -euo pipefail
           python3 scripts/parse_relays.py relays.html \
-            --fetched-at "$FETCHED_AT" > relays.json
+            --fetched-at "$FETCHED_AT" --reachable-only > relays.json
           python3 -m json.tool relays.json > /dev/null
 
       - name: Publish snapshot as single orphan commit on data
